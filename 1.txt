@@ -1,0 +1,13 @@
+REPO=TOE_PARSER
+
+echo "# $REPO" > README.md
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+
+
+git remote remove origin 2>/dev/null
+git remote add origin https://github.com/yaroslav2901/$REPO.git
+
+git push -u origin main --force
