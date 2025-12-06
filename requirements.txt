@@ -1,0 +1,6 @@
+opencv-python-headless
+pytesseract
+numpy
+requests
+dotenv
+playwright
