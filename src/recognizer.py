@@ -401,7 +401,8 @@ def run(image_path: str) -> Dict[str, Any]:
     
     final_json_data ={
         "regionId": existing.get("regionId", "Ternopil"),
-        "lastUpdated": last_updated_iso,
+        #"lastUpdated": last_updated_iso,
+        "lastUpdated": datetime.now(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         "fact": existing["fact"],  # Тут вже є update та today
         "preset": {
             "time_zone": {

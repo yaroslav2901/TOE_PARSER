@@ -1,4 +1,4 @@
-REPO=TOE_PARSER
+REPO=ZAK_OE_PARSER
 
 echo "# $REPO" > README.md
 git init
