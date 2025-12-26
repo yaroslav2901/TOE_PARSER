@@ -46,6 +46,7 @@ def send_photo(image_path, caption=None):
                 data={"chat_id": CHAT_ID, "caption": caption or "", "parse_mode": "HTML"},
                 files={"photo": img}
             )
+        caption = caption.replace("\n", " ")
         log(f"✅ Відправлено фото: {image_path} з підписом: {caption or ''}")
 
     except Exception as e:
@@ -60,7 +61,7 @@ def send_error(text):
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         data = {
             "chat_id": CHAT_ID,
-            "text": f"<b>CHERN_PARSER</b>\n{text}",
+            "text": f"<b>TOE_PARSER</b>\n{text}",
             "parse_mode": "HTML"
         }
         requests.post(url, data=data)
@@ -78,7 +79,7 @@ def send_message(text):
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         data = {
             "chat_id": CHAT_ID,
-            "text": f"<b>CHERN_PARSER</b>\n{text}",
+            "text": f"<b>TOE_PARSER</b>\n{text}",
             "parse_mode": "HTML"
         }
         requests.post(url, data=data)

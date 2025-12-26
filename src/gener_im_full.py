@@ -2,16 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 Створення PNG графіка погодинних відключень з JSON.
-Виводить одне зображення для останнього JSON у out/images/ як: gpv-all-today.png
-Покращено:
- - генерація для більшої дати, якщо в JSON дві дати
- - більш надійна робота з відсутніми шрифтами/файлами
- - правильне центрування заголовка
- - безпечніша обробка day_key в fact.data
- - трирядкові підписи годин
- - збільшена висота рядка годин
- - розділення години на дві половини для станів first/second/mfirst/msecond
- - легенда в один рядок
+Генерує:
+- gpv-all-today.png для сьогоднішньої дати
+- gpv-all-tomorrow.png для завтрашньої дати (якщо є)
+Видаляє gpv-all-tomorrow.png якщо графіку на завтра немає
 """
 import json
 from pathlib import Path
@@ -23,9 +17,7 @@ import sys
 from telegram_notify import send_error, send_photo, send_message
 
 # --- Налаштування шляхів ---
-# Визначаємо BASE як батьківську директорію проекту TOE_PARSER 
 BASE = Path(__file__).parent.parent.absolute()
-#BASE = Path("/home/yaroslav/bots/TOE_PARSER")
 JSON_DIR = BASE / "out"
 OUT_DIR = BASE / "out/images"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -45,15 +37,15 @@ def log(message):
         pass
 
 # --- Візуальні параметри ---
-CELL_W = 44          # ширина клітинки за годину
-CELL_H = 36          # висота рядка групи
-LEFT_COL_W = 140     # ширина лівої колонки
-HEADER_H = 34        # висота області заголовка
-SPACING = 60         # зовнішні відступи
-LEGEND_H = 60        # блок легенди під таблицею (зменшено для одного рядка)
-HOUR_ROW_H = 90      # висота рядка з годинами
-HEADER_SPACING = 35  # негатив піднімає таблицю ближче до заголовка
-HOUR_LINE_GAP = 15   # відстань між трьома рядками годин
+CELL_W = 44
+CELL_H = 36
+LEFT_COL_W = 140
+HEADER_H = 34
+SPACING = 60
+LEGEND_H = 60
+HOUR_ROW_H = 90
+HEADER_SPACING = 35
+HOUR_LINE_GAP = 15
 
 # --- Шрифти ---
 TITLE_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -69,13 +61,9 @@ BG = (250, 250, 250)
 TABLE_BG = (255, 255, 255)
 GRID_COLOR = (139, 139, 139)
 TEXT_COLOR = (0, 0, 0)
-OUTAGE_COLOR = (147, 170, 210)      # Світла немає (синій)
-POSSIBLE_COLOR = (255, 220, 115)    # Можливе відключення (жовтий)
-AVAILABLE_COLOR = (255, 255, 255)   # Світло є (білий)
-#FIRST_HALF_COLOR = (147, 170, 210)  # Перші 30 хв немає (синій)
-#SECOND_HALF_COLOR = (147, 170, 210) # Другі 30 хв немає (синій)
-#MFIRST_HALF_COLOR = (255, 220, 115) # Можливо перші 30 хв немає (жовтий)
-#MSECOND_HALF_COLOR = (255, 220, 115) # Можливо другі 30 хв немає (жовтий)
+OUTAGE_COLOR = (147, 170, 210)
+POSSIBLE_COLOR = (255, 220, 115)
+AVAILABLE_COLOR = (255, 255, 255)
 HEADER_BG = (245, 247, 250)
 FOOTER_COLOR = (140, 140, 140)
 
@@ -99,51 +87,97 @@ def pick_font(size, bold=False):
         except Exception:
             return None
 
-# --- Отримання дати для відображення (більша з доступних) ---
-def get_target_date(fact_data: dict) -> tuple:
+# --- Видалення зображення tomorrow якщо воно не потрібне ---
+def cleanup_tomorrow_image(generated_files: list):
     """
-    Повертає timestamp і ключ для більшої дати з доступних.
+    Видаляє gpv-all-tomorrow.png якщо його немає в списку згенерованих файлів
+    
+    Args:
+        generated_files: список назв файлів, які було згенеровано
+    """
+    tomorrow_file = OUT_DIR / "gpv-all-tomorrow.png"
+    
+    # Якщо файл існує, але не був згенерований в цій сесії
+    if tomorrow_file.exists() and "gpv-all-tomorrow.png" not in generated_files:
+        try:
+            tomorrow_file.unlink()
+            log(f"🗑️ Видалено застаріле зображення: {tomorrow_file}")
+        except Exception as e:
+            log(f"⚠️ Помилка при видаленні {tomorrow_file}: {e}")
+
+# --- Визначення дат для генерації ---
+def get_dates_to_generate(fact_data: dict) -> list:
+    """
+    Повертає список кортежів (timestamp, day_key, filename, date_label) для генерації.
     
     Args:
         fact_data: Словник з даними fact.data
         
     Returns:
-        tuple: (timestamp, day_key) для обраної дати
+        list: Список кортежів для кожної дати
     """
     available_dates = list(fact_data.keys())
     
     if not available_dates:
         raise ValueError("Немає доступних дат у fact.data")
     
-    if len(available_dates) == 1:
-        # Тільки одна дата - використовуємо її
-        day_key = available_dates[0]
-        try:
-            timestamp = int(day_key)
-        except ValueError:
-            timestamp = int(fact_data.get("today", day_key))
-        return timestamp, day_key
-    
-    # Дві або більше дат - вибираємо більшу (пізнішу)
-    log(f"Знайдено {len(available_dates)} дат: {available_dates}")
-    
     # Сортуємо дати як числа (timestamp) у зростаючому порядку
     try:
         sorted_dates = sorted(available_dates, key=lambda x: int(x))
     except (ValueError, TypeError):
-        # Якщо не вдається перетворити на числа, сортуємо як строки
         sorted_dates = sorted(available_dates)
     
-    # Беремо останню (найбільшу) дату
-    day_key = sorted_dates[-1]
-    timestamp = int(day_key)
+    # Отримуємо поточну дату (початок доби) в Києві
+    kyiv_tz = ZoneInfo("Europe/Kyiv")
+    now = datetime.now(kyiv_tz)
+    today_start = datetime(now.year, now.month, now.day, tzinfo=kyiv_tz)
+    today_ts = int(today_start.timestamp())
+    tomorrow_ts = today_ts + 86400  # +1 день
     
-    log(f"Обрано дату: {day_key} ({datetime.fromtimestamp(timestamp, ZoneInfo('Europe/Kyiv')).strftime('%d.%m.%Y')})")
-    return timestamp, day_key
+    result = []
+    
+    for day_key in sorted_dates:
+        timestamp = int(day_key)
+        date_obj = datetime.fromtimestamp(timestamp, kyiv_tz)
+        date_str = date_obj.strftime("%d.%m.%Y")
+        
+        # Визначаємо, це сьогодні чи завтра
+        day_diff = (timestamp - today_ts) // 86400
+        
+        if day_diff == 0:
+            # Сьогодні
+            filename = "gpv-all-today.png"
+            date_label = "сьогодні"
+            log(f"Знайдено дату для СЬОГОДНІ: {day_key} ({date_str})")
+        elif day_diff == 1:
+            # Завтра
+            filename = "gpv-all-tomorrow.png"
+            date_label = "завтра"
+            log(f"Знайдено дату для ЗАВТРА: {day_key} ({date_str})")
+        else:
+            # Інша дата - пропускаємо або використовуємо як сьогодні
+            log(f"Знайдено іншу дату: {day_key} ({date_str}), різниця днів: {day_diff}")
+            if len(sorted_dates) == 1:
+                # Якщо тільки одна дата, генеруємо як today
+                filename = "gpv-all-today.png"
+                date_label = date_str
+            else:
+                continue
+        
+        result.append((timestamp, day_key, filename, date_str))
+    
+    if not result:
+        # Якщо не знайшли підходящих дат, беремо останню як today
+        day_key = sorted_dates[-1]
+        timestamp = int(day_key)
+        date_str = datetime.fromtimestamp(timestamp, kyiv_tz).strftime("%d.%m.%Y")
+        result.append((timestamp, day_key, "gpv-all-today.png", date_str))
+        log(f"Використовую останню дату як today: {day_key} ({date_str})")
+    
+    return result
 
 # --- Функція для отримання кольору за станом ---
 def get_color_for_state(state: str) -> tuple:
-    """Повертає колір клітинки залежно від стану"""
     color_map = {
         "yes": AVAILABLE_COLOR,
         "no": OUTAGE_COLOR,
@@ -157,7 +191,6 @@ def get_color_for_state(state: str) -> tuple:
 
 # --- Функція для отримання опису стану ---
 def get_description_for_state(state: str, preset: dict) -> str:
-    """Повертає опис стану з preset.time_type або стандартний"""
     time_type = preset.get("time_type", {})
     descriptions = {
         "yes": "Світло є",
@@ -171,114 +204,81 @@ def get_description_for_state(state: str, preset: dict) -> str:
     return time_type.get(state, descriptions.get(state, "Невідомий стан"))
 
 # --- Функція для малювання розділеної клітинки ---
-def draw_split_cell(draw, x0: int, y0: int, x1: int, y1: int, state: str, prev_state: str, next_state: str, outline_color: tuple):
-    """
-    Малює клітинку відповідно до її власного стану з урахуванням сусідніх годин для mfirst/msecond.
-    
-    Логіка станів:
-    - "yes" → вся біла
-    - "no" → вся синя
-    - "maybe" → вся жовта
-    - "first" → ліва синя, права біла
-    - "second" → ліва біла, права синя
-    - "mfirst" → ліва жовта, права залежить від НАСТУПНОЇ години
-    - "msecond" → ліва залежить від ПОПЕРЕДНЬОЇ години, права жовта
-    
-    Приклади:
-    - Година 11="mfirst", година 12="no": клітинка 11 ліва жовта, права синя (від години 12)
-    - Година 13="yes", година 14="msecond": клітинка 14 ліва біла (від години 13), права жовта
-    """
-    cell_width = x1 - x0
-    half_width = cell_width // 2
-    
-    # Визначаємо кольори на основі власного стану
-    if state == "no":
-        left_color = right_color = OUTAGE_COLOR
+def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
+    half = (x1 - x0) // 2
+
+    if state == "yes":
+        left = right = AVAILABLE_COLOR
+
+    elif state == "no":
+        left = right = OUTAGE_COLOR
+
     elif state == "maybe":
-        left_color = right_color = POSSIBLE_COLOR
-    elif state == "yes":
-        left_color = right_color = AVAILABLE_COLOR
+        left = right = POSSIBLE_COLOR
+
     elif state == "first":
-        # Ліва синя, права залежить від НАСТУПНОЇ години
-        left_color = OUTAGE_COLOR
-        # Перевіряємо стан наступної години
-        if next_state == "no":
-            right_color = OUTAGE_COLOR
-        elif next_state == "maybe":
-            right_color = POSSIBLE_COLOR
-        elif next_state in ["first", "mfirst"]:
-            right_color = OUTAGE_COLOR if next_state == "first" else POSSIBLE_COLOR
-        elif next_state in ["second", "msecond"]:
-            right_color = AVAILABLE_COLOR  # Перша половина наступної години зі світлом
-        else:
-            right_color = AVAILABLE_COLOR  # За замовчуванням
+        left = OUTAGE_COLOR
+        right = OUTAGE_COLOR if next_state in ["no", "second"] else AVAILABLE_COLOR
+
     elif state == "second":
-        # Ліва залежить від ПОПЕРЕДНЬОЇ години, права синя
-        right_color = OUTAGE_COLOR
-        # Перевіряємо стан попередньої години
-        if prev_state == "no":
-            left_color = OUTAGE_COLOR
-        elif prev_state == "maybe":
-            left_color = POSSIBLE_COLOR
-        elif prev_state in ["second", "msecond"]:
-            # колір лівої половини залежить від попередньої години якщо вона була msecond ТО ж жовта, інакше синя
-            left_color = OUTAGE_COLOR if prev_state == "second" else POSSIBLE_COLOR
-        elif prev_state in ["first", "mfirst"]:
-            left_color = AVAILABLE_COLOR  # Друга половина попередньої години зі світлом
-        else:
-            left_color = AVAILABLE_COLOR  # За замовчуванням
+        right = OUTAGE_COLOR
+        left = OUTAGE_COLOR if prev_state in ["no", "second"] else AVAILABLE_COLOR
+
+    # =======================
+    # ✅ mfirst (КІНЕЦЬ ДОБИ)
+    # =======================
     elif state == "mfirst":
-        # Ліва жовта, права залежить від НАСТУПНОЇ години
-        left_color = POSSIBLE_COLOR
-        # Перевіряємо стан наступної години
-        if next_state == "no":
-            right_color = OUTAGE_COLOR
-        elif next_state == "maybe":
-            right_color = POSSIBLE_COLOR
-        elif next_state in ["first", "mfirst"]:
-            right_color = OUTAGE_COLOR 
-        elif next_state in ["second", "msecond"]:
-            right_color = OUTAGE_COLOR
+        left = POSSIBLE_COLOR
+        if next_state is not None:
+            if next_state in ["no", "second"]:
+                right = OUTAGE_COLOR
+            elif next_state in ["maybe", "msecond"]:
+                right = POSSIBLE_COLOR
+            else:
+                right = AVAILABLE_COLOR
         else:
-            right_color = AVAILABLE_COLOR  # За замовчуванням
+            # остання година доби → друга половина аналізується за станом попередньої години
+            if prev_state in ["no", "second", "first"]:
+                right = AVAILABLE_COLOR
+            else:
+                right = OUTAGE_COLOR
+            #right = AVAILABLE_COLOR
+
+    # =======================
+    # ✅ msecond (ПОЧАТОК ДОБИ)
+    # =======================
     elif state == "msecond":
-        # Ліва залежить від ПОПЕРЕДНЬОЇ години, права жовта
-        right_color = POSSIBLE_COLOR
-        # Перевіряємо стан попередньої години
-        if prev_state == "no":
-            left_color = OUTAGE_COLOR
-        elif prev_state == "maybe":
-            left_color = POSSIBLE_COLOR
-        elif prev_state in ["second", "msecond"]:
-            # колір лівої половини залежить від попередньої години якщо вона була msecond ТО ж жовта, інакше синя
-            left_color = OUTAGE_COLOR
-        elif prev_state in ["first", "mfirst"]:
-            left_color = OUTAGE_COLOR 
+        right = POSSIBLE_COLOR
+        if prev_state is not None:
+            if prev_state in ["no", "second"]:
+                left = OUTAGE_COLOR
+            elif prev_state in ["maybe", "mfirst"]:
+                left = POSSIBLE_COLOR
+            else:
+                left = AVAILABLE_COLOR
         else:
-            left_color = AVAILABLE_COLOR  # За замовчуванням
+            # перша година доби → перша половина аналізується за станом наступної години
+            if next_state in ["no", "second", "first"]:
+                left = AVAILABLE_COLOR
+            else:
+                left = OUTAGE_COLOR            
+
     else:
-        left_color = right_color = AVAILABLE_COLOR
-    
-    # Малюємо клітинку
-    if left_color == right_color:
-        # Якщо обидві половини однакового кольору, малюємо суцільну клітинку
-        draw.rectangle([x0, y0, x1, y1], fill=left_color, outline=outline_color)
+        left = right = AVAILABLE_COLOR
+
+    # --- Малювання ---
+    if left == right:
+        draw.rectangle([x0, y0, x1, y1], fill=left, outline=GRID_COLOR)
     else:
-        # Якщо кольори різні, малюємо дві половини з розділювальною лінією
-        draw.rectangle([x0, y0, x0 + half_width, y1], fill=left_color)
-        draw.rectangle([x0 + half_width, y0, x1, y1], fill=right_color)
-        # Вертикальна лінія розділення
-        #draw.line([(x0 + half_width, y0), (x0 + half_width, y1)], fill=outline_color)
+        draw.rectangle([x0, y0, x0 + half, y1], fill=left)
+        draw.rectangle([x0 + half, y0, x1, y1], fill=right)
+        draw.rectangle([x0, y0, x1, y1], outline=GRID_COLOR)
 
 # --- Основна функція рендерингу ---
-def render(data: dict, json_path: Path):
+def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: str, date_str: str):
     fact = data.get("fact", {})
     preset = data.get("preset", {}) or {}
-    if "today" not in fact or "data" not in fact:
-        raise ValueError("JSON не містить ключі 'fact.today' або 'fact.data'")
-
-    # Отримуємо цільову дату (більшу з доступних)
-    day_ts, day_key = get_target_date(fact["data"])
+    
     day_map = fact["data"].get(day_key, {})
 
     # Сортування груп
@@ -310,8 +310,7 @@ def render(data: dict, json_path: Path):
     font_legend = pick_font(LEGEND_FONT_SIZE)
 
     # --- Заголовок ---
-    date_for_title = datetime.fromtimestamp(day_ts, ZoneInfo("Europe/Kyiv")).strftime("%d.%m.%Y")
-    title_text = f"Графік погодинних відключень на {date_for_title}"
+    title_text = f"Графік погодинних відключень на {date_str}"
     bbox = draw.textbbox((0,0), title_text, font=font_title)
     w_title = bbox[2] - bbox[0]
     h_title = bbox[3] - bbox[1]
@@ -326,18 +325,16 @@ def render(data: dict, json_path: Path):
     table_y1 = table_y0 + n_rows*CELL_H
     draw.rectangle([table_x0, table_y0, table_x1, table_y1], fill=TABLE_BG, outline=GRID_COLOR)
 
-    # --- Рядок годин (тримірний) ---
+    # --- Рядок годин ---
     hour_y0 = table_y0 - HOUR_ROW_H
     hour_y1 = table_y0
     for h in range(24):
         x0 = table_x0 + LEFT_COL_W + h*CELL_W
         x1 = x0 + CELL_W
         draw.rectangle([x0, hour_y0, x1, hour_y1], fill=HEADER_BG, outline=GRID_COLOR)
-        # трирядковий підпис
         start = f"{h:02d}"
         middle = "-"
         end = f"{(h+1)%24:02d}"
-        # обчислення вертикальної позиції
         bbox1 = draw.textbbox((0,0), start, font=font_hour)
         bbox2 = draw.textbbox((0,0), middle, font=font_hour)
         bbox3 = draw.textbbox((0,0), end, font=font_hour)
@@ -374,17 +371,24 @@ def render(data: dict, json_path: Path):
             h_key = str(h + 1)
             state = gp_hours.get(h_key, "yes")
             
-            # Отримуємо стани сусідніх годин
-            prev_h_key = str(h) if h > 0 else "24"
-            next_h_key = str(h + 2) if h < 23 else "1"
-            prev_state = gp_hours.get(prev_h_key, "yes")
-            next_state = gp_hours.get(next_h_key, "yes")
+            #prev_h_key = str(h) if h > 0 else "24"
+            #next_h_key = str(h + 2) if h < 23 else "1"
+            #prev_state = gp_hours.get(prev_h_key, "yes")
+            #next_state = gp_hours.get(next_h_key, "yes")
+
+            prev_h_key = str(h) if h > 0 else None
+            next_h_key = str(h + 2) if h < 23 else None            
+            #prev_state = gp_hours.get(prev_h_key, "yes") if prev_h_key else "yes"
+            #next_state = gp_hours.get(next_h_key, "yes") if next_h_key else "yes"
+            prev_state = gp_hours.get(prev_h_key) if prev_h_key else None
+            next_state = gp_hours.get(next_h_key) if next_h_key else None
+
+
             
             x0h = table_x0 + LEFT_COL_W + h*CELL_W
             x1h = x0h + CELL_W
             
-            # Використовуємо функцію для малювання розділеної клітинки з урахуванням сусідів
-            draw_split_cell(draw, x0h, y0, x1h, y1, state, prev_state, next_state, GRID_COLOR)
+            draw_split_cell(draw, x0h, y0, x1h, y1, state, prev_state, next_state)
 
     # --- Лінії сітки ---
     for i in range(0, 25):
@@ -394,9 +398,8 @@ def render(data: dict, json_path: Path):
         y = table_y0 + r*CELL_H
         draw.line([(table_x0, y), (table_x1, y)], fill=GRID_COLOR)
 
-    # --- Легенда в один рядок ---
+    # --- Легенда ---
     legend_states = ["yes", "no", "maybe"]
-    
     legend_y_start = table_y1 + 15
     box_size = 18
     gap = 15
@@ -423,11 +426,34 @@ def render(data: dict, json_path: Path):
     pub_y = legend_y_start + box_size + 20
     draw.text((pub_x, pub_y), pub_label, fill=FOOTER_COLOR, font=font_small)
 
-    out_name = OUT_DIR / "gpv-all-today.png"
+    out_path = OUT_DIR / output_filename
     scale = 3
     img_resized = img.resize((img.width*scale, img.height*scale), resample=Image.LANCZOS)
-    img_resized.save(out_name, optimize=True)
-    log(f"Збережено {out_name}")
+    img_resized.save(out_path, optimize=True)
+    log(f"✅ Збережено {out_path}")
+
+# --- Головна функція рендерингу ---
+def render(data: dict, json_path: Path):
+    fact = data.get("fact", {})
+    if "today" not in fact or "data" not in fact:
+        raise ValueError("JSON не містить ключі 'fact.today' або 'fact.data'")
+
+    # Отримуємо всі дати для генерації
+    dates_to_generate = get_dates_to_generate(fact["data"])
+    
+    log(f"📅 Буде згенеровано {len(dates_to_generate)} зображень(я)")
+    
+    # Список згенерованих файлів
+    generated_files = []
+    
+    # Генеруємо зображення для кожної дати
+    for day_ts, day_key, filename, date_str in dates_to_generate:
+        log(f"🖼️ Генерую {filename} для дати {date_str}")
+        render_single_date(data, day_ts, day_key, filename, date_str)
+        generated_files.append(filename)
+    
+    # Видаляємо tomorrow якщо його не було згенеровано
+    cleanup_tomorrow_image(generated_files)
 
 def generate_from_json(json_path):
     path = Path(json_path)
@@ -437,7 +463,7 @@ def generate_from_json(json_path):
         raise FileNotFoundError(f"JSON файл не знайдено: {json_path}")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    log(f"▶️ Запускаю генерацію зображення gpv-all-today.png з {json_path}")
+    log(f"▶️ Запускаю генерацію зображень з {json_path}")
     render(data, path)
 
 def main():
@@ -448,7 +474,7 @@ def main():
         send_error(f"❌ Помилка при завантаженні JSON: {e}")
         sys.exit(1)
     
-    log("▶️ Запускаю генерацію зображення gpv-all-today.png з " + str(path))
+    log("▶️ Запускаю генерацію зображень з " + str(path))
     try:
         render(data, path)
     except Exception as e:
