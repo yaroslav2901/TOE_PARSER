@@ -4,11 +4,10 @@
 """
 import argparse
 import os
-import json
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from datetime import datetime
-from telegram_notify import send_error, send_photo
+from telegram_notify import send_error
 import downloader
 import recognizer
 import gener_im_full
@@ -19,7 +18,6 @@ LOG_DIR = Path("logs")
 LOG_FILE = LOG_DIR / "main.log"
 FULL_LOG_FILE = LOG_DIR / "full_log.log"
 LOG_DIR.mkdir(exist_ok=True)
-json_path = "out/Ternopiloblenerho.json"
 
 
 def log(message):
@@ -29,62 +27,6 @@ def log(message):
     print(line)
     with open(FULL_LOG_FILE, "a", encoding="utf-8") as f:
         f.write(line + "\n")
-
-
-def send_schedule_photo(json_path: str, base_image_path: str = "out/images") -> None:
-    """
-    Визначає яке фото відправляти (сьогодні або завтра) на основі кількості дат у JSON.
-    Якщо є 2+ дати - відправляє графік на завтра, інакше - на сьогодні.
-    
-    Args:
-        json_path: Шлях до JSON файлу з графіком
-        base_image_path: Базовий шлях до папки з зображеннями
-    """
-    try:
-        # Перевіряємо чи існує JSON файл
-        if not os.path.exists(json_path):
-            log(f"⚠️ JSON файл не існує: {json_path}, пропускаю відправку фото")
-            return
-        
-        # Читаємо JSON для перевірки дат
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        
-        # Отримуємо всі дати з графіками
-        dates = list(data.get("date", {}).keys())
-        date_count = len(dates)
-        
-        log(f"📊 Знайдено {date_count} дат у графіку: {dates}")
-        
-        # Визначаємо яке фото відправляти
-        if date_count >= 2:
-            # Є дві і більше дати (сьогодні + завтра)
-            photo_path = os.path.join(base_image_path, "gpv-all-tomorrow.png")
-            caption = "🔄 <b>Тернопільобленерго</b>\nГрафік на завтра\n#Тернопільобленерго"
-            log("📸 Відправляю графік на ЗАВТРА (є 2+ дати)")
-        else:
-            # Тільки одна дата (сьогодні) або немає дат
-            photo_path = os.path.join(base_image_path, "gpv-all-today.png")
-            caption = "🔄 <b>Тернопільобленерго</b>\nГрафік на сьогодні\n#Тернопільобленерго"
-            log("📸 Відправляю графік на СЬОГОДНІ (1 дата)")
-        
-        # Перевіряємо чи файл існує
-        if os.path.exists(photo_path):
-            send_photo(photo_path, caption)
-            log(f"✔️ Фото відправлено: {photo_path}")
-        else:
-            error_msg = f"⚠️ Файл не знайдено: {photo_path}"
-            log(error_msg)
-            send_error(error_msg)
-            
-    except json.JSONDecodeError as e:
-        error_msg = f"❌ Помилка читання JSON: {e}"
-        log(error_msg)
-        send_error(error_msg)
-    except Exception as e:
-        error_msg = f"❌ Помилка при відправці фото: {e}"
-        log(error_msg)
-        send_error(error_msg)
 
 
 def parse_args():
@@ -199,6 +141,7 @@ def run_github_upload():
     return True
 
 
+
 def process_downloaded_images(files):
     """
     Обробка завантажених зображень
@@ -212,6 +155,15 @@ def process_downloaded_images(files):
     log("=" * 60)
     log("🔄 ОБРОБКА ЗАВАНТАЖЕНИХ ЗОБРАЖЕНЬ")
     log("=" * 60)
+    
+    # Перевірка чи є обидва файли
+    #if not files.get("today") or not files.get("tomorrow"):
+    #    log("⚠️ Не всі зображення завантажені")
+    #    log(f"   TODAY: {'✓' if files.get('today') else '✗'}")
+    #    log(f"   TOMORROW: {'✓' if files.get('tomorrow') else '✗'}")
+    #    log("❌ Обробка скасована - потрібні обидва зображення")
+    #    send_error("❌ Обробка скасована - не вистачає зображень (today або tomorrow)")
+    #    return False
     
     log("✅ Обидва зображення завантажені, починаю обробку")
     
@@ -237,7 +189,13 @@ def process_downloaded_images(files):
         else:
             log("❌ Помилка обробки TOMORROW")
     
-    log(f"✅ {success_count} зображення успішно розпізнано")
+    # Перевірка чи обидва файли успішно оброблені
+    #if success_count != 2:
+    #    log(f"❌ Не всі файли оброблені успішно ({success_count}/2)")
+    #    send_error(f"❌ Розпізнавання завершилось з помилками ({success_count}/2)")
+    #    return False
+    
+    log(f"✅ 'success_count' зображення успішно розпізнано")
     
     # ---- ЗАПУСК ГЕНЕРАТОРІВ ----
     log("=" * 60)
@@ -258,15 +216,6 @@ def process_downloaded_images(files):
         log("❌ Помилка при публікації на GitHub")
         send_error("❌ Помилка при публікації на GitHub")
         return False
-    
-    # ---- ВІДПРАВКА ФОТО ----
-    log("=" * 60)
-    log("📸 ВІДПРАВКА ФОТО В TELEGRAM")
-    log("=" * 60)
-    
-    # Визначаємо шлях до JSON (припускаємо стандартну структуру TOE)
-    #json_path = "out/Ternopiloblenerho.json"
-    send_schedule_photo(json_path)
     
     log("=" * 60)
     log("✅ ВСЯ ОБРОБКА ЗАВЕРШЕНА УСПІШНО")
@@ -337,10 +286,6 @@ def process_single_file(image_path):
     # ---- ПУБЛІКАЦІЯ НА GITHUB ----
     run_github_upload()
     
-    # ---- ВІДПРАВКА ФОТО ----
-    #json_path = "out/Ternopiloblenerho.json"
-    send_schedule_photo(json_path)
-    
     return True
 
 
@@ -365,7 +310,7 @@ def main():
     if deleted_total > 0:
         log(f"📦 Разом видалено {deleted_total} старих файлів у вибраних папках")
 
-    # Чистимо лог від даних старше 3 днів
+    # Чистимо  лог від даних старше 3 днів
     removed = clean_log(FULL_LOG_FILE, days=3)
     if removed is not None:
         if removed > 0:
@@ -390,7 +335,7 @@ def main():
                     new_files.append(f)
 
             if not new_files:
-                log("⏩ Нові файли не з'явилися — припиняю роботу")
+                log("⏩ Нові файли не з’явилися — припиняю роботу")
                 return
                      
             # Обробка завантажених файлів
