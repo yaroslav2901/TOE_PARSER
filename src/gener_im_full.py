@@ -218,11 +218,11 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
 
     elif state == "first":
         left = OUTAGE_COLOR
-        right = OUTAGE_COLOR if next_state in ["no", "second"] else AVAILABLE_COLOR
+        right = OUTAGE_COLOR if next_state in ["no", "first", "second","maybe", "mfirst","msecond"] else AVAILABLE_COLOR
 
     elif state == "second":
         right = OUTAGE_COLOR
-        left = OUTAGE_COLOR if prev_state in ["no", "second"] else AVAILABLE_COLOR
+        left = OUTAGE_COLOR if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"] else AVAILABLE_COLOR
 
     # =======================
     # ✅ mfirst (КІНЕЦЬ ДОБИ)
@@ -230,15 +230,15 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
     elif state == "mfirst":
         left = POSSIBLE_COLOR
         if next_state is not None:
-            if next_state in ["no", "second"]:
+            if next_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
                 right = OUTAGE_COLOR
-            elif next_state in ["maybe", "msecond"]:
-                right = POSSIBLE_COLOR
+            elif next_state in ["yes"] and prev_state not in ["no", "first", "second","maybe", "mfirst","msecond"]:
+                right = OUTAGE_COLOR
             else:
                 right = AVAILABLE_COLOR
         else:
             # остання година доби → друга половина аналізується за станом попередньої години
-            if prev_state in ["no", "second", "first"]:
+            if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
                 right = AVAILABLE_COLOR
             else:
                 right = OUTAGE_COLOR
@@ -250,15 +250,15 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
     elif state == "msecond":
         right = POSSIBLE_COLOR
         if prev_state is not None:
-            if prev_state in ["no", "second"]:
+            if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
                 left = OUTAGE_COLOR
-            elif prev_state in ["maybe", "mfirst"]:
-                left = POSSIBLE_COLOR
+            elif prev_state in ["yes"] and next_state not in ["no", "first", "second","maybe", "mfirst","msecond"]:
+                left = OUTAGE_COLOR
             else:
                 left = AVAILABLE_COLOR
         else:
             # перша година доби → перша половина аналізується за станом наступної години
-            if next_state in ["no", "second", "first"]:
+            if next_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
                 left = AVAILABLE_COLOR
             else:
                 left = OUTAGE_COLOR            
