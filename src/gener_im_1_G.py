@@ -314,101 +314,6 @@ class ImageRenderer:
                       y0 + (Config.CELL_H - h) / 2), 
                      date_label, fill=Config.TEXT_COLOR, font=font_date)
     
-    #def _draw_split_cell(self, draw: ImageDraw.Draw, x0: int, y0: int, x1: int, y1: int, 
-    #                    state: str, prev_state: str, next_state: str, outline_color: tuple):
-    #    """
-    #    Малює клітинку відповідно до її власного стану з урахуванням сусідніх годин.
-    #    
-    #    Логіка станів:
-    #    - "yes" → вся біла
-    #    - "no" → вся синя
-    #    - "maybe" → вся жовта
-    #    - "first" → ліва синя, права біла
-    #    - "second" → ліва біла, права синя
-    #    - "mfirst" → ліва жовта, права залежить від НАСТУПНОЇ години
-    #    - "msecond" → ліва залежить від ПОПЕРЕДНЬОЇ години, права жовта
-    #    """
-    #    cell_width = x1 - x0
-    #    half_width = cell_width // 2
-    #    
-    #    # Визначаємо кольори на основі власного стану
-    #    if state == "no":
-    #        left_color = right_color = Config.OUTAGE_COLOR
-    #    elif state == "maybe":
-    #        left_color = right_color = Config.POSSIBLE_COLOR
-    #    elif state == "yes":
-    #        left_color = right_color = Config.AVAILABLE_COLOR
-    #    elif state == "first":
-    #        # Ліва синя, права залежить від НАСТУПНОЇ години
-    #        left_color = Config.OUTAGE_COLOR
-    #        # Перевіряємо стан наступної години
-    #        if next_state == "no":
-    #            right_color = Config.OUTAGE_COLOR
-    #        elif next_state == "maybe":
-    #            right_color = Config.POSSIBLE_COLOR
-    #        elif next_state in ["first", "mfirst"]:
-    #            right_color = Config.OUTAGE_COLOR if next_state == "first" else Config.POSSIBLE_COLOR
-    #        elif next_state in ["second", "msecond"]:
-    #            right_color = Config.AVAILABLE_COLOR  # Перша половина наступної години зі світлом
-    #        else:
-    #            right_color = Config.AVAILABLE_COLOR  # За замовчуванням
-    #    elif state == "second":
-    #        # Ліва залежить від ПОПЕРЕДНЬОЇ години, права синя
-    #        right_color = Config.OUTAGE_COLOR
-    #        # Перевіряємо стан попередньої години
-    #        if prev_state == "no":
-    #            left_color = Config.OUTAGE_COLOR
-    #        elif prev_state == "maybe":
-    #            left_color = Config.POSSIBLE_COLOR
-    #        elif prev_state in ["second", "msecond"]:
-    #            # колір лівої половини залежить від попередньої години якщо вона була msecond ТО ж жовта, інакше синя
-    #            left_color = Config.OUTAGE_COLOR if prev_state == "second" else Config.POSSIBLE_COLOR
-    #        elif prev_state in ["first", "mfirst"]:
-    #            left_color = Config.AVAILABLE_COLOR  # Друга половина попередньої години зі світлом
-    #        else:
-    #            left_color = Config.AVAILABLE_COLOR  # За замовчуванням
-    #    elif state == "mfirst":
-    #        # Ліва жовта, права залежить від НАСТУПНОЇ години
-    #        left_color = Config.POSSIBLE_COLOR
-    #        # Перевіряємо стан наступної години
-    #        if next_state == "no":
-    #            right_color = Config.OUTAGE_COLOR
-    #        elif next_state == "maybe":
-    #            right_color = Config.POSSIBLE_COLOR
-    #        elif next_state in ["first", "mfirst"]:
-    #            right_color = Config.OUTAGE_COLOR 
-    #        elif next_state in ["second", "msecond"]:
-    #            right_color = Config.OUTAGE_COLOR
-    #        else:
-    #            right_color = Config.AVAILABLE_COLOR  # За замовчуванням
-    #    elif state == "msecond":
-    #        # Ліва залежить від ПОПЕРЕДНЬОЇ години, права жовта
-    #        right_color = Config.POSSIBLE_COLOR
-    #        # Перевіряємо стан попередньої години
-    #        if prev_state == "no":
-    #            left_color = Config.OUTAGE_COLOR
-    #        elif prev_state == "maybe":
-    #            left_color = Config.POSSIBLE_COLOR
-    #        elif prev_state in ["second", "msecond"]:
-    #            # колір лівої половини залежить від попередньої години якщо вона була msecond ТО ж жовта, інакше синя
-    #            left_color = Config.OUTAGE_COLOR
-    #        elif prev_state in ["first", "mfirst"]:
-    #            left_color = Config.OUTAGE_COLOR 
-    #        else:
-    #            left_color = Config.AVAILABLE_COLOR  # За замовчуванням
-    #    else:
-    #        left_color = right_color = Config.AVAILABLE_COLOR
-    #    
-    #    # Малюємо клітинку
-    #    if left_color == right_color:
-    #        # Якщо обидві половини однакового кольору, малюємо суцільну клітинку
-    #        draw.rectangle([x0, y0, x1, y1], fill=left_color, outline=outline_color)
-    #    else:
-    #        # Якщо кольори різні, малюємо дві половини
-    #        draw.rectangle([x0, y0, x0 + half_width, y1], fill=left_color)
-    #        draw.rectangle([x0 + half_width, y0, x1, y1], fill=right_color)
-    #        # Контур навколо всієї клітинки
-    #        draw.rectangle([x0, y0, x1, y1], outline=outline_color, fill=None)
     def _draw_split_cell(self, draw: ImageDraw.Draw, x0: int, y0: int, x1: int, y1: int, 
                         state: str, prev_state: str, next_state: str, outline_color: tuple):
         """
@@ -426,88 +331,6 @@ class ImageRenderer:
         cell_width = x1 - x0
         half_width = cell_width // 2
 
-        ## Визначаємо кольори на основі власного стану
-        #if state == "no":
-        #    left_color = right_color = Config.OUTAGE_COLOR
-        #elif state == "maybe":
-        #    left_color = right_color = Config.POSSIBLE_COLOR
-        #elif state == "yes":
-        #    left_color = right_color = Config.AVAILABLE_COLOR
-        #elif state == "first":
-        #    # Ліва синя, права залежить від НАСТУПНОЇ години
-        #    left_color = Config.OUTAGE_COLOR
-        #    # Перевіряємо стан наступної години
-        #    if next_state == "no":
-        #        right_color = Config.OUTAGE_COLOR
-        #    elif next_state == "maybe":
-        #        right_color = Config.POSSIBLE_COLOR
-        #    elif next_state in ["first", "mfirst"]:
-        #        right_color = Config.OUTAGE_COLOR if next_state == "first" else Config.POSSIBLE_COLOR
-        #    elif next_state in ["second", "msecond"]:
-        #        right_color = Config.AVAILABLE_COLOR  # Перша половина наступної години зі світлом
-        #    else:
-        #        right_color = Config.AVAILABLE_COLOR  # За замовчуванням
-        #elif state == "second":
-        #    # Ліва залежить від ПОПЕРЕДНЬОЇ години, права синя
-        #    right_color = Config.OUTAGE_COLOR
-        #    # Перевіряємо стан попередньої години
-        #    if prev_state == "no":
-        #        left_color = Config.OUTAGE_COLOR
-        #    elif prev_state == "maybe":
-        #        left_color = Config.POSSIBLE_COLOR
-        #    elif prev_state in ["second", "msecond"]:
-        #        # колір лівої половини залежить від попередньої години якщо вона була msecond ТО ж жовта, інакше синя
-        #        left_color = Config.OUTAGE_COLOR if prev_state == "second" else Config.POSSIBLE_COLOR
-        #    elif prev_state in ["first", "mfirst"]:
-        #        left_color = Config.AVAILABLE_COLOR  # Друга половина попередньої години зі світлом
-        #    else:
-        #        left_color = Config.AVAILABLE_COLOR  # За замовчуванням
-        #elif state == "mfirst":
-        #    # Ліва жовта, права залежить від НАСТУПНОЇ години
-        #    left_color = Config.POSSIBLE_COLOR
-        #    # Перевіряємо стан наступної години
-        #    if next_state is not None:
-        #        if next_state == "no":
-        #            right_color = Config.OUTAGE_COLOR
-        #        elif next_state == "maybe":
-        #            right_color = Config.POSSIBLE_COLOR
-        #        elif next_state in ["first", "mfirst"]:
-        #            right_color = Config.OUTAGE_COLOR 
-        #        elif next_state in ["second", "msecond"]:
-        #            right_color = Config.OUTAGE_COLOR
-        #        else:
-        #            right_color = Config.AVAILABLE_COLOR  # За замовчуванням
-        #    else:
-        #        # Остання година доби → права залежить від попередньої години
-        #        if prev_state in ["no", "second", "first"]:
-        #            right_color = Config.AVAILABLE_COLOR
-        #        else:
-        #            right_color = Config.OUTAGE_COLOR
-        #elif state == "msecond":
-        #    # Ліва залежить від ПОПЕРЕДНЬОЇ години, права жовта
-        #    right_color = Config.POSSIBLE_COLOR
-        #    # Перевіряємо стан попередньої години
-        #    if prev_state is not None:
-        #        if prev_state == "no":
-        #            left_color = Config.OUTAGE_COLOR
-        #        elif prev_state == "maybe":
-        #            left_color = Config.POSSIBLE_COLOR
-        #        elif prev_state in ["second", "msecond"]:
-        #            # колір лівої половини залежить від попередньої години якщо вона була msecond ТО ж жовта, інакше синя
-        #            left_color = Config.OUTAGE_COLOR
-        #        elif prev_state in ["first", "mfirst"]:
-        #            left_color = Config.OUTAGE_COLOR 
-        #        else:
-        #            left_color = Config.AVAILABLE_COLOR  # За замовчуванням
-        #    else:
-        #        # Перша година доби → ліва залежить від наступної години
-        #        if next_state in ["no", "second", "first"]:
-        #            left_color = Config.AVAILABLE_COLOR
-        #        else:
-        #            left_color = Config.OUTAGE_COLOR
-        #else:
-        #    left_color = right_color = Config.AVAILABLE_COLOR
-
         if state == "yes":
             left_color = right_color = Config.AVAILABLE_COLOR
 
@@ -519,11 +342,11 @@ class ImageRenderer:
 
         elif state == "first":
             left_color = Config.OUTAGE_COLOR
-            right_color = Config.OUTAGE_COLOR if next_state in ["no", "first", "second","maybe", "mfirst","msecond"] else AVAILABLE_COLOR
+            right_color = Config.OUTAGE_COLOR if next_state in ["no", "first", "second","maybe", "mfirst","msecond"] else Config.AVAILABLE_COLOR
 
         elif state == "second":
             right_color = Config.OUTAGE_COLOR
-            left_color = Config.OUTAGE_COLOR if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"] else AVAILABLE_COLOR
+            left_color = Config.OUTAGE_COLOR if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"] else Config.AVAILABLE_COLOR
 
         # =======================
         # ✅ mfirst (КІНЕЦЬ ДОБИ)
@@ -543,7 +366,6 @@ class ImageRenderer:
                     right_color = Config.AVAILABLE_COLOR
                 else:
                     right_color = Config.OUTAGE_COLOR
-                #right_color = AVAILABLE_COLOR
 
         # =======================
         # ✅ msecond (ПОЧАТОК ДОБИ)
