@@ -51,7 +51,8 @@ def send_schedule_photo(json_path: str, base_image_path: str = "out/images") -> 
             data = json.load(f)
         
         # Отримуємо всі дати з графіками
-        dates = list(data.get("date", {}).keys())
+        #dates = list(data.get("date", {}).keys())
+        dates = list(data.get("fact", {}).get("data", {}).keys())
         date_count = len(dates)
         
         log(f"📊 Знайдено {date_count} дат у графіку: {dates}")
