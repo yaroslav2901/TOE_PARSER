@@ -113,12 +113,37 @@ def parse_args():
 def delete_image(path):
     """Видалення файлу після помилки"""
     try:
-        os.remove(path)
-        log(f"🗑️ Видалено файл після помилки: {path}")
-        send_error(f"🗑️ Видалено файл після помилки: {path}")
+        if os.path.exists(path):
+            os.remove(path)
+            log(f"🗑️ Видалено файл після помилки: {path}")
+            send_error(f"🗑️ Видалено файл після помилки: {path}")
+        else:
+            log(f"⚠️ Файл вже не існує: {path}")
     except Exception as e:
         log(f"⚠️ Не вдалося видалити файл: {e}")
         send_error(f"⚠️ Не вдалося видалити файл: {e}")
+
+
+def delete_images(files):
+    """
+    Видалення кількох файлів після помилки
+    
+    Args:
+        files: dict з ключами 'today' та 'tomorrow' або list шляхів
+    """
+    if isinstance(files, dict):
+        # Якщо передано dict з today/tomorrow
+        for key in ["today", "tomorrow"]:
+            if files.get(key):
+                delete_image(files[key])
+    elif isinstance(files, list):
+        # Якщо передано список шляхів
+        for path in files:
+            if path:
+                delete_image(path)
+    elif isinstance(files, str):
+        # Якщо передано один шлях
+        delete_image(files)
 
 
 def run_recognizer(image_path, label):
@@ -181,23 +206,34 @@ def run_generators():
     return True
 
 
-def run_github_upload():
+def run_github_upload(files_to_delete=None):
     """
     Публікація результатів на GitHub
+    
+    Args:
+        files_to_delete: файли для видалення при помилці (dict, list або str)
+    
+    Returns:
+        bool: True якщо успішно
     """
     try:
         log("🚀 Запускаю upload_to_github_new.py")
         import upload_to_github_new
         upload_to_github_new.run_upload()
         log("✔️ upload_to_github_new.py завершено успішно")
+        return True
     except Exception as e:
         log(f"❌ Помилка upload_to_github_new.py: {e}")
         send_error(f"❌ Помилка upload_to_github_new.py: {e}")
         import traceback
         log(f"Traceback:\n{traceback.format_exc()}")
+        
+        # Видаляємо файли при помилці завантаження на GitHub
+        if files_to_delete:
+            log("🗑️ Видаляю вхідні зображення через помилку GitHub")
+            delete_images(files_to_delete)
+        
         return False
-    
-    return True
 
 
 def process_downloaded_images(files):
@@ -248,6 +284,8 @@ def process_downloaded_images(files):
     if not run_generators():
         log("❌ Помилка при генерації")
         send_error("❌ Помилка при генерації результатів")
+        # Видаляємо вхідні файли
+        delete_images(files)
         return False
     
     # ---- ПУБЛІКАЦІЯ НА GITHUB ----
@@ -255,7 +293,8 @@ def process_downloaded_images(files):
     log("📤 ПУБЛІКАЦІЯ НА GITHUB")
     log("=" * 60)
 
-    if not run_github_upload():
+    # Передаємо файли для видалення при помилці
+    if not run_github_upload(files_to_delete=files):
         log("❌ Помилка при публікації на GitHub")
         send_error("❌ Помилка при публікації на GitHub")
         return False
@@ -331,12 +370,19 @@ def process_single_file(image_path):
         log(f"❌ Файл не існує: {image_path}")
         send_error(f"❌ Файл не існує: {image_path}")
         return False
+    
     # ---- ОБРОБКА ФАЙЛУ ----
-    run_recognizer(image_path, "SINGLE")
+    if not run_recognizer(image_path, "SINGLE"):
+        return False
+    
     # ---- ЗАПУСК ГЕНЕРАТОРІВ ----
-    run_generators()
+    if not run_generators():
+        delete_image(image_path)
+        return False
+    
     # ---- ПУБЛІКАЦІЯ НА GITHUB ----
-    run_github_upload()
+    if not run_github_upload(files_to_delete=image_path):
+        return False
     
     # ---- ВІДПРАВКА ФОТО ----
     #json_path = "out/Ternopiloblenerho.json"
