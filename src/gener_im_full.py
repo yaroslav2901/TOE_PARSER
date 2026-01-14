@@ -426,6 +426,26 @@ def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: s
     pub_y = legend_y_start + box_size + 20
     draw.text((pub_x, pub_y), pub_label, fill=FOOTER_COLOR, font=font_small)
 
+    # --- Інформація про  проєкт ---   
+    # Позиціюємо зверху
+    info_y_start = legend_y_start + box_size + 20
+    x_text = SPACING
+    line_gap = 6
+
+    info_lines = [
+        "Цей проєкт створено волонтерами для вас. Разом ми можемо зробити інформацію доступною для всіх.",
+        "Приєднуйся до спільноти: https://t.me/svitlobot_api"        
+    ]
+
+    for i, line in enumerate(info_lines):
+        bbox_line = draw.textbbox((0, 0), line, font=font_small)
+        draw.text(
+            (x_text, info_y_start + i * (bbox_line[3] - bbox_line[1] + line_gap)),
+            line,
+            fill=FOOTER_COLOR,
+            font=font_small
+        )
+
     out_path = OUT_DIR / output_filename
     scale = 3
     img_resized = img.resize((img.width*scale, img.height*scale), resample=Image.LANCZOS)

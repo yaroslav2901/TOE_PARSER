@@ -535,6 +535,8 @@ class ImageRenderer:
         font_small = self.font_manager.get_font(Config.SMALL_FONT_SIZE)
         bbox_pub = draw.textbbox((0, 0), pub_label, font=font_small)
         w_pub = bbox_pub[2] - bbox_pub[0]
+
+        
         
         width = Config.SPACING * 2 + Config.LEFT_COL_W + 24 * Config.CELL_W
         legend_bottom = (Config.SPACING + Config.HEADER_H + Config.HOUR_ROW_H + 
@@ -543,6 +545,23 @@ class ImageRenderer:
         
         draw.text((width - w_pub - Config.SPACING, legend_bottom - 20), 
                  pub_label, fill=Config.FOOTER_COLOR, font=font_small)
+        
+        # Координати
+        x_text = Config.SPACING
+        y_base = legend_bottom - 20
+        line_gap = 6
+
+        # Інформаційні рядки
+        info_lines = [
+            "Цей проєкт створено волонтерами для вас. Разом ми можемо зробити інформацію доступною для всіх.",
+            "Приєднуйся до спільноти: https://t.me/svitlobot_api"
+        ]
+
+        for i, line in enumerate(info_lines):
+            bbox_line = draw.textbbox((0, 0), line, font=font_small)
+            draw.text((x_text, y_base + i * (bbox_line[3] - bbox_line[1] + line_gap)),
+                      line, fill=Config.FOOTER_COLOR, font=font_small)
+
     
     def _save_image(self, img: Image.Image) -> None:
         """Зберегти зображення"""
