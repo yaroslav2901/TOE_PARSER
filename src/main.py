@@ -217,14 +217,14 @@ def run_github_upload(files_to_delete=None):
         bool: True якщо успішно
     """
     try:
-        log("🚀 Запускаю upload_to_github_new.py")
-        import upload_to_github_new
-        upload_to_github_new.run_upload()
-        log("✔️ upload_to_github_new.py завершено успішно")
+        log("🚀 Запускаю upload_to_github.py")
+        import upload_to_github
+        upload_to_github.run_upload()
+        log("✔️ upload_to_github.py завершено успішно")
         return True
     except Exception as e:
-        log(f"❌ Помилка upload_to_github_new.py: {e}")
-        send_error(f"❌ Помилка upload_to_github_new.py: {e}")
+        log(f"❌ Помилка upload_to_github.py: {e}")
+        send_error(f"❌ Помилка upload_to_github.py: {e}")
         import traceback
         log(f"Traceback:\n{traceback.format_exc()}")
         

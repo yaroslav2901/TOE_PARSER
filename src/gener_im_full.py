@@ -6,6 +6,7 @@
 - gpv-all-today.png для сьогоднішньої дати
 - gpv-all-tomorrow.png для завтрашньої дати (якщо є)
 Видаляє gpv-all-tomorrow.png якщо графіку на завтра немає
+НОВЕ: Підсвічує зміни порівняно з попереднім графіком
 """
 import json
 from pathlib import Path
@@ -21,10 +22,15 @@ BASE = Path(__file__).parent.parent.absolute()
 JSON_DIR = BASE / "out"
 OUT_DIR = BASE / "out/images"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
+PREV_STATE_DIR = BASE / "out/prev_state"
+PREV_STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 LOG_DIR = BASE / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 FULL_LOG_FILE = LOG_DIR / "full_log.log"
+
+# Файл для збереження попереднього стану
+PREV_STATE_FILE = PREV_STATE_DIR / "previous_state.json"
 
 def log(message):
     timestamp = datetime.now(ZoneInfo("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
@@ -66,6 +72,70 @@ POSSIBLE_COLOR = (255, 220, 115)
 AVAILABLE_COLOR = (255, 255, 255)
 HEADER_BG = (245, 247, 250)
 FOOTER_COLOR = (140, 140, 140)
+
+# Кольори для підсвічування змін
+WORSE_OUTLINE = (220, 53, 69)  # Червоний - більше відключень
+BETTER_OUTLINE = (40, 167, 69)  # Зелений - менше відключень
+HIGHLIGHT_WIDTH = 3  # Товщина обводки
+
+# --- Функції для роботи з попереднім станом ---
+def load_previous_state():
+    """Завантажує попередній стан графіків"""
+    if PREV_STATE_FILE.exists():
+        try:
+            with open(PREV_STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"⚠️ Помилка при завантаженні попереднього стану: {e}")
+    return {}
+
+def save_current_state(data: dict):
+    """Зберігає поточний стан графіків"""
+    try:
+        fact = data.get("fact", {})
+        state_to_save = {
+            "data": fact.get("data", {}),
+            "update": fact.get("update"),
+            "timestamp": datetime.now(ZoneInfo("Europe/Kyiv")).isoformat()
+        }
+        with open(PREV_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state_to_save, f, ensure_ascii=False, indent=2)
+        log(f"💾 Збережено поточний стан у {PREV_STATE_FILE}")
+    except Exception as e:
+        log(f"⚠️ Помилка при збереженні поточного стану: {e}")
+
+def calculate_outage_severity(state: str) -> int:
+    """
+    Повертає числове значення "важкості" відключення
+    Більше число = гірший стан (більше відключень)
+    """
+    severity_map = {
+        "yes": 0,        # Світло є
+        "maybe": 2,      # Можливе відключення
+        "mfirst": 2,     # Можливе відключення перші 30 хв
+        "msecond": 2,    # Можливе відключення другі 30 хв
+        "first": 3,      # Відключення перші 30 хв
+        "second": 3,     # Відключення другі 30 хв
+        "no": 4          # Повне відключення
+    }
+    return severity_map.get(state, 0)
+
+def compare_states(old_state: str, new_state: str) -> str:
+    """
+    Порівнює два стани і повертає:
+    - "worse" якщо стан погіршився (більше відключень)
+    - "better" якщо стан покращився (менше відключень)
+    - "same" якщо стан не змінився
+    """
+    old_severity = calculate_outage_severity(old_state)
+    new_severity = calculate_outage_severity(new_state)
+    
+    if new_severity > old_severity:
+        return "worse"
+    elif new_severity < old_severity:
+        return "better"
+    else:
+        return "same"
 
 # --- Завантаження останнього JSON ---
 def load_latest_json(json_dir: Path):
@@ -204,7 +274,7 @@ def get_description_for_state(state: str, preset: dict) -> str:
     return time_type.get(state, descriptions.get(state, "Невідомий стан"))
 
 # --- Функція для малювання розділеної клітинки ---
-def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
+def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state, change_type=None):
     half = (x1 - x0) // 2
 
     if state == "yes":
@@ -224,9 +294,6 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
         right = OUTAGE_COLOR
         left = OUTAGE_COLOR if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"] else AVAILABLE_COLOR
 
-    # =======================
-    # ✅ mfirst (КІНЕЦЬ ДОБИ)
-    # =======================
     elif state == "mfirst":
         left = POSSIBLE_COLOR
         if next_state is not None:
@@ -237,16 +304,11 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
             else:
                 right = AVAILABLE_COLOR
         else:
-            # остання година доби → друга половина аналізується за станом попередньої години
             if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
                 right = AVAILABLE_COLOR
             else:
                 right = OUTAGE_COLOR
-            #right = AVAILABLE_COLOR
 
-    # =======================
-    # ✅ msecond (ПОЧАТОК ДОБИ)
-    # =======================
     elif state == "msecond":
         right = POSSIBLE_COLOR
         if prev_state is not None:
@@ -257,7 +319,6 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
             else:
                 left = AVAILABLE_COLOR
         else:
-            # перша година доби → перша половина аналізується за станом наступної години
             if next_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
                 left = AVAILABLE_COLOR
             else:
@@ -273,13 +334,30 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state):
         draw.rectangle([x0, y0, x0 + half, y1], fill=left)
         draw.rectangle([x0 + half, y0, x1, y1], fill=right)
         draw.rectangle([x0, y0, x1, y1], outline=GRID_COLOR)
+    
+    # --- Підсвічування змін ---
+    if change_type == "worse":
+        # Червона обводка для погіршення
+        for i in range(HIGHLIGHT_WIDTH):
+            draw.rectangle([x0 + i, y0 + i, x1 - i, y1 - i], outline=WORSE_OUTLINE)
+    elif change_type == "better":
+        # Зелена обводка для покращення
+        for i in range(HIGHLIGHT_WIDTH):
+            draw.rectangle([x0 + i, y0 + i, x1 - i, y1 - i], outline=BETTER_OUTLINE)
 
 # --- Основна функція рендерингу ---
-def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: str, date_str: str):
+def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: str, date_str: str, prev_data: dict = None):
     fact = data.get("fact", {})
     preset = data.get("preset", {}) or {}
     
     day_map = fact["data"].get(day_key, {})
+    
+    # Отримуємо попередні дані для порівняння
+    prev_day_map = {}
+    has_changes = False
+    if prev_data:
+        prev_day_map = prev_data.get(day_key, {})
+        log(f"📊 Порівнюю з попереднім графіком для {day_key}")
 
     # Сортування груп
     def sort_key(s):
@@ -356,6 +434,10 @@ def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: s
     draw.text((table_x0 + (LEFT_COL_W - (bbox[2]-bbox[0]))/2, hour_y0 + (HOUR_ROW_H - (bbox[3]-bbox[1]))/2),
               left_label, fill=TEXT_COLOR, font=font_hour)
 
+    # Лічильники змін
+    changes_worse = 0
+    changes_better = 0
+
     # --- Рядки груп і клітинки ---
     for r, group in enumerate(rows):
         y0 = table_y0 + r*CELL_H
@@ -367,28 +449,38 @@ def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: s
                   label, fill=TEXT_COLOR, font=font_group)
 
         gp_hours = day_map.get(group, {}) if isinstance(day_map.get(group, {}), dict) else {}
+        prev_gp_hours = prev_day_map.get(group, {}) if isinstance(prev_day_map.get(group, {}), dict) else {}
+        
         for h in range(24):
             h_key = str(h + 1)
             state = gp_hours.get(h_key, "yes")
             
-            #prev_h_key = str(h) if h > 0 else "24"
-            #next_h_key = str(h + 2) if h < 23 else "1"
-            #prev_state = gp_hours.get(prev_h_key, "yes")
-            #next_state = gp_hours.get(next_h_key, "yes")
-
             prev_h_key = str(h) if h > 0 else None
             next_h_key = str(h + 2) if h < 23 else None            
-            #prev_state = gp_hours.get(prev_h_key, "yes") if prev_h_key else "yes"
-            #next_state = gp_hours.get(next_h_key, "yes") if next_h_key else "yes"
             prev_state = gp_hours.get(prev_h_key) if prev_h_key else None
             next_state = gp_hours.get(next_h_key) if next_h_key else None
 
-
+            # Порівняння з попереднім станом
+            change_type = None
+            if prev_gp_hours:
+                old_state = prev_gp_hours.get(h_key, "yes")
+                comparison = compare_states(old_state, state)
+                if comparison == "worse":
+                    change_type = "worse"
+                    changes_worse += 1
+                elif comparison == "better":
+                    change_type = "better"
+                    changes_better += 1
             
             x0h = table_x0 + LEFT_COL_W + h*CELL_W
             x1h = x0h + CELL_W
             
-            draw_split_cell(draw, x0h, y0, x1h, y1, state, prev_state, next_state)
+            draw_split_cell(draw, x0h, y0, x1h, y1, state, prev_state, next_state, change_type)
+
+    # Виводимо статистику змін
+    if changes_worse > 0 or changes_better > 0:
+        log(f"📈 Зміни в графіку: погіршень={changes_worse}, покращень={changes_better}")
+        has_changes = True
 
     # --- Лінії сітки ---
     for i in range(0, 25):
@@ -416,6 +508,27 @@ def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: s
         draw.text((x_cursor + box_size + 4, legend_y_start + (box_size - (text_bbox[3]-text_bbox[1]))/2), 
                  description, fill=TEXT_COLOR, font=font_legend)
         x_cursor += box_size + 4 + w_text + gap
+    
+    # Додаємо легенду для змін якщо є зміни
+    if has_changes:
+        x_cursor += gap * 2
+        
+        # Червона рамка - погіршення
+        draw.rectangle([x_cursor, legend_y_start, x_cursor + box_size, legend_y_start + box_size], 
+                      fill=TABLE_BG, outline=WORSE_OUTLINE, width=HIGHLIGHT_WIDTH)
+        worse_text = "Більше відключень"
+        text_bbox = draw.textbbox((0,0), worse_text, font=font_legend)
+        draw.text((x_cursor + box_size + 4, legend_y_start + (box_size - (text_bbox[3]-text_bbox[1]))/2), 
+                 worse_text, fill=TEXT_COLOR, font=font_legend)
+        x_cursor += box_size + 4 + (text_bbox[2] - text_bbox[0]) + gap
+        
+        # Зелена рамка - покращення
+        draw.rectangle([x_cursor, legend_y_start, x_cursor + box_size, legend_y_start + box_size], 
+                      fill=TABLE_BG, outline=BETTER_OUTLINE, width=HIGHLIGHT_WIDTH)
+        better_text = "Менше відключень"
+        text_bbox = draw.textbbox((0,0), better_text, font=font_legend)
+        draw.text((x_cursor + box_size + 4, legend_y_start + (box_size - (text_bbox[3]-text_bbox[1]))/2), 
+                 better_text, fill=TEXT_COLOR, font=font_legend)
 
     # --- Інформація про публікацію ---
     pub_text = fact.get("update") or data.get("lastUpdated") or datetime.now(ZoneInfo('Europe/Kyiv')).strftime("%d.%m.%Y")
@@ -426,8 +539,7 @@ def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: s
     pub_y = legend_y_start + box_size + 20
     draw.text((pub_x, pub_y), pub_label, fill=FOOTER_COLOR, font=font_small)
 
-    # --- Інформація про  проєкт ---   
-    # Позиціюємо зверху
+    # --- Інформація про проєкт ---   
     info_y_start = legend_y_start + box_size + 20
     x_text = SPACING
     line_gap = 6
@@ -458,6 +570,10 @@ def render(data: dict, json_path: Path):
     if "today" not in fact or "data" not in fact:
         raise ValueError("JSON не містить ключі 'fact.today' або 'fact.data'")
 
+    # Завантажуємо попередній стан для порівняння
+    prev_state = load_previous_state()
+    prev_fact_data = prev_state.get("data", {})
+
     # Отримуємо всі дати для генерації
     dates_to_generate = get_dates_to_generate(fact["data"])
     
@@ -469,11 +585,14 @@ def render(data: dict, json_path: Path):
     # Генеруємо зображення для кожної дати
     for day_ts, day_key, filename, date_str in dates_to_generate:
         log(f"🖼️ Генерую {filename} для дати {date_str}")
-        render_single_date(data, day_ts, day_key, filename, date_str)
+        render_single_date(data, day_ts, day_key, filename, date_str, prev_fact_data)
         generated_files.append(filename)
     
     # Видаляємо tomorrow якщо його не було згенеровано
     cleanup_tomorrow_image(generated_files)
+    
+    # Зберігаємо поточний стан для наступного порівняння
+    save_current_state(data)
 
 def generate_from_json(json_path):
     path = Path(json_path)
