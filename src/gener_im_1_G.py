@@ -347,16 +347,14 @@ class ImageRenderer:
             left_color = right_color = Config.POSSIBLE_COLOR
         elif state == "first":
             left_color = Config.OUTAGE_COLOR
-            right_color = Config.OUTAGE_COLOR if next_state in ["no", "first", "second","maybe", "mfirst","msecond"] else Config.AVAILABLE_COLOR
+            right_color = Config.OUTAGE_COLOR if next_state in ["no", "first","maybe"] else Config.AVAILABLE_COLOR
         elif state == "second":
             right_color = Config.OUTAGE_COLOR
-            left_color = Config.OUTAGE_COLOR if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"] else Config.AVAILABLE_COLOR
+            left_color = Config.OUTAGE_COLOR if prev_state in ["no", "second","maybe"] else Config.AVAILABLE_COLOR
         elif state == "mfirst":
             left_color = Config.POSSIBLE_COLOR
             if next_state is not None:
-                if next_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
-                    right_color = Config.OUTAGE_COLOR
-                elif next_state in ["yes"] and prev_state not in ["no", "first", "second","maybe", "mfirst","msecond"]:
+                if next_state in ["no", "first"]:
                     right_color = Config.OUTAGE_COLOR
                 else:
                     right_color = Config.AVAILABLE_COLOR
@@ -368,9 +366,7 @@ class ImageRenderer:
         elif state == "msecond":
             right_color = Config.POSSIBLE_COLOR
             if prev_state is not None:
-                if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
-                    left_color = Config.OUTAGE_COLOR
-                elif prev_state in ["yes"] and next_state not in ["no", "first", "second","maybe", "mfirst","msecond"]:
+                if prev_state in ["no", "second"]:
                     left_color = Config.OUTAGE_COLOR
                 else:
                     left_color = Config.AVAILABLE_COLOR

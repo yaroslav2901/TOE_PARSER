@@ -288,18 +288,16 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state, change_
 
     elif state == "first":
         left = OUTAGE_COLOR
-        right = OUTAGE_COLOR if next_state in ["no", "first", "second","maybe", "mfirst","msecond"] else AVAILABLE_COLOR
+        right = OUTAGE_COLOR if next_state in ["no", "first","maybe"] else AVAILABLE_COLOR
 
     elif state == "second":
         right = OUTAGE_COLOR
-        left = OUTAGE_COLOR if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"] else AVAILABLE_COLOR
+        left = OUTAGE_COLOR if prev_state in ["no", "second","maybe"] else AVAILABLE_COLOR
 
     elif state == "mfirst":
         left = POSSIBLE_COLOR
-        if next_state is not None:
-            if next_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
-                right = OUTAGE_COLOR
-            elif next_state in ["yes"] and prev_state not in ["no", "first", "second","maybe", "mfirst","msecond"]:
+        if next_state is not None: # Перевіряємо, чи існує next_state
+            if next_state in ["no", "first"]:
                 right = OUTAGE_COLOR
             else:
                 right = AVAILABLE_COLOR
@@ -312,9 +310,7 @@ def draw_split_cell(draw, x0, y0, x1, y1, state, prev_state, next_state, change_
     elif state == "msecond":
         right = POSSIBLE_COLOR
         if prev_state is not None:
-            if prev_state in ["no", "first", "second","maybe", "mfirst","msecond"]:
-                left = OUTAGE_COLOR
-            elif prev_state in ["yes"] and next_state not in ["no", "first", "second","maybe", "mfirst","msecond"]:
+            if prev_state in ["no", "second"]:
                 left = OUTAGE_COLOR
             else:
                 left = AVAILABLE_COLOR
