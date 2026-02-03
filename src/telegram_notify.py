@@ -70,7 +70,24 @@ def send_error(text):
     except Exception as e:
         log(f"❌ Помилка при відправленні error: {e}")
 
-def send_message(text):
+#def send_message(text):
+#    if not TOKEN or not CHAT_ID:
+#        log("❌ BOT_TOKEN або ADMIN_CHAT_ID не встановлені!")
+#        return
+#
+#    try:
+#        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+#        data = {
+#            "chat_id": CHAT_ID,
+#            "text": f"<b>TOE_PARSER</b>\n{text}",
+#            "parse_mode": "HTML"
+#        }
+#        requests.post(url, data=data)
+#        log(f"Відправлено повідомлення: {text}")
+#
+#    except Exception as e:
+#        log(f"❌ Помилка при відправленні error: {e}")
+def send_message(text, silent=False):
     if not TOKEN or not CHAT_ID:
         log("❌ BOT_TOKEN або ADMIN_CHAT_ID не встановлені!")
         return
@@ -80,10 +97,11 @@ def send_message(text):
         data = {
             "chat_id": CHAT_ID,
             "text": f"<b>TOE_PARSER</b>\n{text}",
-            "parse_mode": "HTML"
+            "parse_mode": "HTML",
+            "disable_notification": silent  # Додано параметр для беззвучного режиму
         }
         requests.post(url, data=data)
-        log(f"Відправлено повідомлення: {text}")
+        log(f"Відправлено {'безувучне ' if silent else ''}повідомлення: {text}")
 
     except Exception as e:
-        log(f"❌ Помилка при відправленні error: {e}")
+        log(f"❌ Помилка при відправленні повідомлення: {e}")

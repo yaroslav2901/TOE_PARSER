@@ -42,7 +42,7 @@ def get_api_data_and_save():
     log("🌐 Запит даних з API...")
     now = datetime.now(ZoneInfo("Europe/Kyiv"))
     log("⏳ Формування часових меж...")
-    after = ((now - timedelta(days=1)).replace(hour=12, minute=0, second=0, microsecond=0).isoformat())
+    after = ((now - timedelta(days=0)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat())
     log(f"⏳ After: {after}")
     before = ((now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat())
     log(f"⏳ Before: {before}")

@@ -7,9 +7,12 @@ import time
 import base64
 from zoneinfo import ZoneInfo
 from pathlib import Path
+import random
+from telegram_notify import send_message
 
 class ToeOutageParser:
-    BASE_URL = "https://api-toe-poweron.inneti.net/api"
+    #BASE_URL = "https://api-toe-poweron.inneti.net/api"
+    BASE_URL = "https://api-poweron.toe.com.ua/api"
     LOG_DIR = Path("logs")
     LOG_DIR.mkdir(exist_ok=True)
     FULL_LOG_FILE = LOG_DIR / "full_log.log"
@@ -84,14 +87,16 @@ class ToeOutageParser:
         for i, ((city_id, street_id), expected_groups) in enumerate(ToeOutageParser.GROUP_KEYS.items()):
             key = ToeOutageParser.build_debug_key(city_id, street_id)
             #tp = f"{now_ts + i}%D0%B0"
-            tp = f"{now_ts + i}"
+            #tp = f"{now_ts + i}"
+            tp = f"{now_ts + random.randint(0,500)}"
             query = f"before={before.replace('+', '%2B')}&after={after.replace('+', '%2B')}&group[]={expected_groups[0]}&time={tp}"
             url = f"{ToeOutageParser.BASE_URL}/a_gpv_g?{query}"
-            #ToeOutageParser.log(f"url: {url}")
+            ToeOutageParser.log(f"url: {url}")
 
             headers = {
                 'Accept': 'application/json, text/plain, */*',
-                'Origin': 'https://toe-poweron.inneti.net',
+                #'Origin': 'https://toe-poweron.inneti.net',
+                'Origin': 'https://poweron.toe.com.ua',
                 'X-debug-key': key,
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             }
@@ -136,6 +141,8 @@ class ToeOutageParser:
 
             except Exception as e:
                 ToeOutageParser.log(f"❌ Помилка API ({city_id}/{street_id}): {str(e)}")
+                send_message(f"❌ Помилка API ({city_id}/{street_id}): {str(e)}", silent=True)
+
         
         ToeOutageParser.log(f"🏁 Завершено. Оброблено груп: {processed_count-1}. Дати: {list(data_structure.keys())}")
         
