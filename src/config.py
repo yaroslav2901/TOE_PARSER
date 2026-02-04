@@ -15,3 +15,6 @@ DATA_DIR = os.path.join(REPO_DIR, "data")
 IMAGES_DIR = os.path.join(REPO_DIR, f"images/{REGION}")
 LOG_FILE = os.path.join(BASE_DIR, "logs", "full_log.log")
 
+# -------------------для телеграм------------------
+BOT_PREFIX="TOE_PARSER"
+

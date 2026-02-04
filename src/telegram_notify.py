@@ -3,9 +3,10 @@ import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
+from config import  BASE_DIR, BOT_PREFIX
 
 # --- Завантажуємо .env ---
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # вихід із /src
+#BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # вихід із /src
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(ENV_PATH)
 
@@ -61,7 +62,7 @@ def send_error(text):
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         data = {
             "chat_id": CHAT_ID,
-            "text": f"<b>TOE_PARSER</b>\n{text}",
+            "text": f"<b>{BOT_PREFIX}</b>\n{text}",
             "parse_mode": "HTML"
         }
         requests.post(url, data=data)
@@ -79,7 +80,7 @@ def send_error(text):
 #        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 #        data = {
 #            "chat_id": CHAT_ID,
-#            "text": f"<b>TOE_PARSER</b>\n{text}",
+#            "text": f"<b>{BOT_PREFIX}</b>\n{text}",
 #            "parse_mode": "HTML"
 #        }
 #        requests.post(url, data=data)
@@ -96,7 +97,7 @@ def send_message(text, silent=False):
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         data = {
             "chat_id": CHAT_ID,
-            "text": f"<b>TOE_PARSER</b>\n{text}",
+            "text": f"<b>{BOT_PREFIX}</b>\n{text}",
             "parse_mode": "HTML",
             "disable_notification": silent  # Додано параметр для беззвучного режиму
         }
