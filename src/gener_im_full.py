@@ -43,15 +43,15 @@ def log(message):
         pass
 
 # --- Візуальні параметри ---
-CELL_W = 44
-CELL_H = 36
-LEFT_COL_W = 140
-HEADER_H = 34
-SPACING = 60
-LEGEND_H = 60
-HOUR_ROW_H = 90
-HEADER_SPACING = 35
-HOUR_LINE_GAP = 15
+CELL_W = 44 # Ширина однієї клітинки (1 година)
+CELL_H = 36 # Висота однієї клітинки
+LEFT_COL_W = 140 # Ширина лівої колонки з назвами груп
+HEADER_H = 34 # Висота заголовка
+SPACING = 60 # Відступи з усіх сторін
+LEGEND_H = 100 # Висота області для легенди та інформації внизу
+HOUR_ROW_H = 90 # Висота рядка з годинами над таблицею
+HEADER_SPACING = 35 # Відстань між заголовком і рядком годин
+HOUR_LINE_GAP = 15 # Відстань між рядками годин (наприклад, між "00", "-", "01")
 
 # --- Шрифти ---
 TITLE_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -60,7 +60,7 @@ TITLE_FONT_SIZE = 34
 HOUR_FONT_SIZE = 15
 GROUP_FONT_SIZE = 20
 SMALL_FONT_SIZE = 16
-LEGEND_FONT_SIZE = 14
+LEGEND_FONT_SIZE = 14 # Розмір шрифту для легенди та інформації внизу
 
 # --- Кольори ---
 BG = (250, 250, 250)
@@ -540,10 +540,13 @@ def render_single_date(data: dict, day_ts: int, day_key: str, output_filename: s
     x_text = SPACING
     line_gap = 6
 
+    
     info_lines = [
         "Цей проєкт створено волонтерами для вас. Разом ми можемо зробити інформацію доступною для всіх.",
-        "Приєднуйся до спільноти: https://t.me/svitlobot_api"        
+        "Помітили розбіжності між графіком та офіційним джерелом? Напишіть нам: https://t.me/OUTAGE_CHAT",
+        "Офіційна спільнота проєкту: https://t.me/svitlobot_api"        
     ]
+
 
     for i, line in enumerate(info_lines):
         bbox_line = draw.textbbox((0, 0), line, font=font_small)

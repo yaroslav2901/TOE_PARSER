@@ -55,17 +55,17 @@ def log(message):
 
 class Config:
     """Клас для зберігання всіх констант конфігурації"""
-    CELL_W = 44
-    CELL_H = 36
-    LEFT_COL_W = 160
-    SPACING = 60
-    HEADER_SPACING = 45
-    LEGEND_H = 80
-    HOUR_ROW_H = 70
-    HEADER_H = 34
-    RIGHT_TITLE_PADDING = 12
-    RIGHT_TITLE_RADIUS = 20
-    RIGHT_TITLE_EXTRA_H = 10
+    CELL_W = 44 # Ширина однієї клітинки (1 година)
+    CELL_H = 36 # Висота однієї клітинки
+    LEFT_COL_W = 160 # Ширина лівої колонки з назвами груп
+    SPACING = 60 # Відступи з усіх сторін
+    HEADER_SPACING = 45 # Відстань між заголовком і рядком годин
+    LEGEND_H = 100 # Висота області для легенди та інформації внизу
+    HOUR_ROW_H = 70 # Висота рядка з годинами над таблицею
+    HEADER_H = 34 # Висота заголовка
+    RIGHT_TITLE_PADDING = 12 # Відступ між текстом правого заголовка і його фоном
+    RIGHT_TITLE_RADIUS = 20 # Радіус заокруглення фону правого заголовка
+    RIGHT_TITLE_EXTRA_H = 10 # Додаткова висота фону правого заголовка для кращого вигляду
     
     TITLE_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -89,9 +89,9 @@ class Config:
     FOOTER_COLOR = (140, 140, 140)
     WORSE_OUTLINE = (220, 53, 69)
     BETTER_OUTLINE = (40, 167, 69)
-    HIGHLIGHT_WIDTH = 3
-    TIMEZONE = "Europe/Kyiv"
-    OUTPUT_SCALE = 3
+    HIGHLIGHT_WIDTH = 3 # Ширина контуру для підсвічування змін
+    TIMEZONE = "Europe/Kyiv" # Часова зона для відображення дат і часу
+    OUTPUT_SCALE = 3 # Масштаб для покращення якості зображення при збереженні
 
 def load_previous_state():
     """Завантажує попередній стан графіків"""
@@ -560,8 +560,10 @@ class ImageRenderer:
 
         info_lines = [
             "Цей проєкт створено волонтерами для вас. Разом ми можемо зробити інформацію доступною для всіх.",
-            "Приєднуйся до спільноти: https://t.me/svitlobot_api"
+            "Помітили розбіжності між графіком та офіційним джерелом? Напишіть нам: https://t.me/OUTAGE_CHAT",
+            "Офіційна спільнота проєкту: https://t.me/svitlobot_api"        
         ]
+
 
         for i, line in enumerate(info_lines):
             bbox_line = draw.textbbox((0, 0), line, font=font_small)
