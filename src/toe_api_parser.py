@@ -168,7 +168,8 @@ class ToeOutageParser:
             warning_msg = f"⚠️ Не знайдено дані для груп: {missing_list} (знайдено {len(found_groups)}/12)"
             ToeOutageParser.log(warning_msg)
             try:
-                send_message(warning_msg, silent=True)
+                #send_message(warning_msg, silent=True)
+                ToeOutageParser.log(f"⚠️ Вимкнено відправку Telegram повідомлень про відсутні групи ")
             except Exception as e:
                 ToeOutageParser.log(f"❌ Не вдалося відправити Telegram повідомлення: {e}")
         else:
